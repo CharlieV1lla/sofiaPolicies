@@ -34,20 +34,17 @@ def main(args):
     num_epochs = args['num_epochs']
 
     # get task parameters
-    is_sim = task_name[:4] == 'sim_'
-    if is_sim:
-        from constants import SIM_TASK_CONFIGS
-        task_config = SIM_TASK_CONFIGS[task_name]
-    else:
-        from aloha_scripts.constants import TASK_CONFIGS
-        task_config = TASK_CONFIGS[task_name]
+    module_path = '~/interbotix_ws/src/telesofia'
+    if module_path not in sys.path:
+    sys.path.append(module_path)
+    from aloha_scripts.constants import TASK_CONFIGS # Not from aloha_scripts.constants
+    task_config = TASK_CONFIGS[task_name]
     dataset_dir = task_config['dataset_dir']
     num_episodes = task_config['num_episodes']
     episode_len = task_config['episode_len']
-    camera_names = task_config['camera_names']
 
     # fixed parameters
-    state_dim = 14
+    state_dim = 7
     lr_backbone = 1e-5
     backbone = 'resnet18'
     if policy_class == 'ACT':
@@ -64,11 +61,9 @@ def main(args):
                          'enc_layers': enc_layers,
                          'dec_layers': dec_layers,
                          'nheads': nheads,
-                         'camera_names': camera_names,
                          }
     elif policy_class == 'CNNMLP':
-        policy_config = {'lr': args['lr'], 'lr_backbone': lr_backbone, 'backbone' : backbone, 'num_queries': 1,
-                         'camera_names': camera_names,}
+        policy_config = {'lr': args['lr'], 'lr_backbone': lr_backbone, 'backbone' : backbone, 'num_queries': 1,}
     else:
         raise NotImplementedError
 
@@ -84,7 +79,6 @@ def main(args):
         'task_name': task_name,
         'seed': args['seed'],
         'temporal_agg': args['temporal_agg'],
-        'camera_names': camera_names,
         'real_robot': not is_sim
     }
 
@@ -100,7 +94,7 @@ def main(args):
         print()
         exit()
 
-    train_dataloader, val_dataloader, stats, _ = load_data(dataset_dir, num_episodes, camera_names, batch_size_train, batch_size_val)
+    train_dataloader, val_dataloader, stats, _ = load_data(dataset_dir, num_episodes, batch_size_train, batch_size_val)
 
     # save dataset stats
     if not os.path.isdir(ckpt_dir):
