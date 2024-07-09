@@ -132,16 +132,6 @@ def make_optimizer(policy_class, policy):
     return optimizer
 
 
-def get_image(ts, camera_names):
-    curr_images = []
-    for cam_name in camera_names:
-        curr_image = rearrange(ts.observation['images'][cam_name], 'h w c -> c h w')
-        curr_images.append(curr_image)
-    curr_image = np.stack(curr_images, axis=0)
-    curr_image = torch.from_numpy(curr_image / 255.0).float().cuda().unsqueeze(0)
-    return curr_image
-
-
 def eval_bc(config, ckpt_name, save_episode=True):
     set_seed(1000)
     ckpt_dir = config['ckpt_dir']
@@ -235,12 +225,11 @@ def eval_bc(config, ckpt_name, save_episode=True):
                 qpos = pre_process(qpos_numpy)
                 qpos = torch.from_numpy(qpos).float().cuda().unsqueeze(0)
                 qpos_history[:, t] = qpos
-                curr_image = get_image(ts, camera_names)
 
                 ### query policy
                 if config['policy_class'] == "ACT":
                     if t % query_frequency == 0:
-                        all_actions = policy(qpos, curr_image)
+                        all_actions = policy(qpos)
                     if temporal_agg:
                         all_time_actions[[t], t:t+num_queries] = all_actions
                         actions_for_curr_step = all_time_actions[:, t]
@@ -254,7 +243,7 @@ def eval_bc(config, ckpt_name, save_episode=True):
                     else:
                         raw_action = all_actions[:, t % query_frequency]
                 elif config['policy_class'] == "CNNMLP":
-                    raw_action = policy(qpos, curr_image)
+                    raw_action = policy(qpos)
                 else:
                     raise NotImplementedError
 
@@ -308,9 +297,9 @@ def eval_bc(config, ckpt_name, save_episode=True):
 
 
 def forward_pass(data, policy):
-    image_data, qpos_data, action_data, is_pad = data
-    image_data, qpos_data, action_data, is_pad = image_data.cuda(), qpos_data.cuda(), action_data.cuda(), is_pad.cuda()
-    return policy(qpos_data, image_data, action_data, is_pad) # TODO remove None
+    qpos_data, action_data, is_pad = data
+    qpos_data, action_data, is_pad = qpos_data.cuda(), action_data.cuda(), is_pad.cuda()
+    return policy(qpos_data, action_data, is_pad) # TODO remove None
 
 
 def train_bc(train_dataloader, val_dataloader, config):
