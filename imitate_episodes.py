@@ -32,6 +32,7 @@ def main(args):
     batch_size_train = args['batch_size']
     batch_size_val = args['batch_size']
     num_epochs = args['num_epochs']
+    no_cameras = args['no_cameras']
 
     # get task parameters
     is_sim = task_name[:4] == 'sim_'
@@ -97,7 +98,7 @@ def main(args):
         print()
         exit()
 
-    train_dataloader, val_dataloader, stats, _ = load_data(dataset_dir, num_episodes, batch_size_train, batch_size_val)
+    train_dataloader, val_dataloader, stats, _ = load_data(dataset_dir, num_episodes, batch_size_train, batch_size_val, no_cameras=no_cameras)
 
     # save dataset stats
     if not os.path.isdir(ckpt_dir):
@@ -281,8 +282,8 @@ def eval_bc(config, ckpt_name, save_episode=True):
         highest_rewards.append(episode_highest_reward)
         print(f'Rollout {rollout_id}\n{episode_return=}, {episode_highest_reward=}, {env_max_reward=}, Success: {episode_highest_reward==env_max_reward}')
 
-        if save_episode:
-            save_videos(image_list, DT, video_path=os.path.join(ckpt_dir, f'video{rollout_id}.mp4'))
+        #if save_episode:
+        #    save_videos(image_list, DT, video_path=os.path.join(ckpt_dir, f'video{rollout_id}.mp4'))
 
     success_rate = np.mean(np.array(highest_rewards) == env_max_reward)
     avg_return = np.mean(episode_returns)
@@ -423,5 +424,8 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_dim', action='store', type=int, help='hidden_dim', required=False)
     parser.add_argument('--dim_feedforward', action='store', type=int, help='dim_feedforward', required=False)
     parser.add_argument('--temporal_agg', action='store_true')
+
+    # my modifications
+    parser.add_argument('--no_cameras', action='store', type=bool, help='no_cameras', required=False)
     
     main(vars(parser.parse_args()))
