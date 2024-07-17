@@ -38,7 +38,8 @@ def main(args):
     # get task parameters
     is_sim = task_name[:4] == 'sim_'
     module_path = '~/interbotix_ws/src/telesofia'
-
+    if module_path not in sys.path:
+        sys.path.append(module_path)
     from scripts.constants import TASK_CONFIGS # Not from aloha_scripts.constants
     task_config = TASK_CONFIGS[task_name]
     dataset_dir = task_config['dataset_dir']
