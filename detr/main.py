@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from .models import build_ACT_model, build_CNNMLP_model
+from .models import build_ACT_model, build_CNNMLP_model, build_MLP_model
 
 import IPython
 e = IPython.embed
@@ -112,3 +112,16 @@ def build_CNNMLP_model_and_optimizer(args_override):
 
     return model, optimizer
 
+
+def build_MLP_model_and_optimizer(args_override):
+    parser = argparse.ArgumentParser('DETR training and evaluation script', parents=[get_args_parser()])
+    args = parser.parse_args()
+
+    for k, v in args_override.items():
+        setattr(args, k, v)
+
+    model = build_MLP_model(args)
+    model.cuda()
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+
+    return model, optimizer

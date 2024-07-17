@@ -13,7 +13,7 @@ from constants import PUPPET_GRIPPER_JOINT_OPEN
 from utils import load_data # data functions
 from utils import sample_box_pose, sample_insertion_pose # robot functions
 from utils import compute_dict_mean, set_seed, detach_dict # helper functions
-from policy import ACTPolicy, CNNMLPPolicy
+from policy import ACTPolicy, CNNMLPPolicy, MLPPolicy
 from visualize_episodes import save_videos
 
 from sim_env import BOX_POSE
@@ -34,10 +34,11 @@ def main(args):
     num_epochs = args['num_epochs']
 
     # get task parameters
+    is_sim = task_name[:4] == 'sim_'
     module_path = '~/interbotix_ws/src/telesofia'
     if module_path not in sys.path:
-    sys.path.append(module_path)
-    from aloha_scripts.constants import TASK_CONFIGS # Not from aloha_scripts.constants
+        sys.path.append(module_path)
+    from scripts.constants import TASK_CONFIGS # Not from aloha_scripts.constants
     task_config = TASK_CONFIGS[task_name]
     dataset_dir = task_config['dataset_dir']
     num_episodes = task_config['num_episodes']
@@ -64,6 +65,8 @@ def main(args):
                          }
     elif policy_class == 'CNNMLP':
         policy_config = {'lr': args['lr'], 'lr_backbone': lr_backbone, 'backbone' : backbone, 'num_queries': 1,}
+    elif " MLP":
+        policy_config = {'lr': args['lr']}
     else:
         raise NotImplementedError
 
@@ -79,7 +82,7 @@ def main(args):
         'task_name': task_name,
         'seed': args['seed'],
         'temporal_agg': args['temporal_agg'],
-        'real_robot': not is_sim
+        'real_robot': True
     }
 
     if is_eval:
@@ -117,6 +120,8 @@ def make_policy(policy_class, policy_config):
         policy = ACTPolicy(policy_config)
     elif policy_class == 'CNNMLP':
         policy = CNNMLPPolicy(policy_config)
+    elif policy_class == 'MLP':
+        policy = MLPPolicy(policy_config)
     else:
         raise NotImplementedError
     return policy
@@ -126,6 +131,8 @@ def make_optimizer(policy_class, policy):
     if policy_class == 'ACT':
         optimizer = policy.configure_optimizers()
     elif policy_class == 'CNNMLP':
+        optimizer = policy.configure_optimizers()
+    elif policy_class == 'MLP':
         optimizer = policy.configure_optimizers()
     else:
         raise NotImplementedError
@@ -140,7 +147,6 @@ def eval_bc(config, ckpt_name, save_episode=True):
     policy_class = config['policy_class']
     onscreen_render = config['onscreen_render']
     policy_config = config['policy_config']
-    camera_names = config['camera_names']
     max_timesteps = config['episode_len']
     task_name = config['task_name']
     temporal_agg = config['temporal_agg']
@@ -163,8 +169,8 @@ def eval_bc(config, ckpt_name, save_episode=True):
 
     # load environment
     if real_robot:
-        from aloha_scripts.robot_utils import move_grippers # requires aloha
-        from aloha_scripts.real_env import make_real_env # requires aloha
+        from scripts.robot_utils import move_grippers # Not from aloha_scripts.constants
+        from scripts.real_env import make_real_env # Not from aloha_scripts.constants
         env = make_real_env(init_node=True)
         env_max_reward = 0
     else:
@@ -244,6 +250,9 @@ def eval_bc(config, ckpt_name, save_episode=True):
                         raw_action = all_actions[:, t % query_frequency]
                 elif config['policy_class'] == "CNNMLP":
                     raw_action = policy(qpos)
+                elif config['policy_class'] == "NN":
+                    raw_action = policy(qpos)
+                    pass
                 else:
                     raise NotImplementedError
 
@@ -262,7 +271,7 @@ def eval_bc(config, ckpt_name, save_episode=True):
 
             plt.close()
         if real_robot:
-            move_grippers([env.puppet_bot_left, env.puppet_bot_right], [PUPPET_GRIPPER_JOINT_OPEN] * 2, move_time=0.5)  # open
+            move_grippers([env.puppet_bot], [PUPPET_GRIPPER_JOINT_OPEN], move_time=0.5)  # open
             pass
 
         rewards = np.array(rewards)

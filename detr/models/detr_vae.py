@@ -196,6 +196,30 @@ class CNNMLP(nn.Module):
         return a_hat
 
 
+class MLP(nn.Module):
+    def __init__(self, state_dim):
+        """ Initializes the model.
+        Parameters:
+            transformer: torch module of the transformer architecture. See transformer.py
+            state_dim: robot state dimension of the environment
+            num_queries: number of object queries, ie detection slot. This is the maximal number of objects
+                         DETR can detect in a single image. For COCO, we recommend 100 queries.
+            aux_loss: True if auxiliary decoding losses (loss at each decoder layer) are to be used.
+        """
+        super().__init__()
+
+        mlp_in_dim = 7
+        self.mlp = mlp(input_dim=mlp_in_dim, hidden_dim=1024, output_dim=7, hidden_depth=2)
+
+    def forward(self, qpos, actions=None):
+        """
+        qpos: batch, qpos_dim
+        actions: batch, seq, action_dim
+        """
+        features = torch.cat(qpos, axis=1) # qpos: 7
+        return self.mlp(features)
+
+
 def mlp(input_dim, hidden_dim, output_dim, hidden_depth):
     if hidden_depth == 0:
         mods = [nn.Linear(input_dim, output_dim)]
@@ -275,3 +299,18 @@ def build_cnnmlp(args):
 
     return model
 
+def build_mlp(args):
+    state_dim = 7
+
+    # From state
+    # backbone = None # from state for now, no need for conv nets
+    # From image
+
+    model = MLP(
+        state_dim=state_dim,
+    )
+
+    n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print("number of parameters: %.2fM" % (n_parameters/1e6,))
+
+    return model
