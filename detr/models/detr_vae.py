@@ -33,7 +33,7 @@ def get_sinusoid_encoding_table(n_position, d_hid):
 
 class DETRVAE(nn.Module):
     """ This is the DETR module that performs object detection """
-    def __init__(self, backbones, transformer, encoder, state_dim, num_queries):
+    def __init__(self, backbones, transformer, encoder, state_dim, num_queries, camera_names):
         """ Initializes the model.
         Parameters:
             backbones: torch module of the backbone to be used. See backbone.py
@@ -45,6 +45,7 @@ class DETRVAE(nn.Module):
         """
         super().__init__()
         self.num_queries = num_queries
+        self.camera_names = camera_names
         self.transformer = transformer
         self.encoder = encoder
         hidden_dim = transformer.d_model
@@ -54,6 +55,7 @@ class DETRVAE(nn.Module):
         if backbones is not None:
             self.input_proj = nn.Conv2d(backbones[0].num_channels, hidden_dim, kernel_size=1)
             self.backbones = nn.ModuleList(backbones)
+            print(self.backbones)
             self.input_proj_robot_state = nn.Linear(7, hidden_dim)
         else:
             # input_dim = 14 + 7 # robot_state + env_state
@@ -181,18 +183,32 @@ class CNNMLP(nn.Module):
         bs, _ = qpos.shape
         # Image observation features and position embeddings
         all_cam_features = []
-        for cam_id, cam_name in enumerate(self.camera_names):
-            features, pos = self.backbones[cam_id](image[:, cam_id])
-            features = features[0] # take the last layer feature
-            pos = pos[0] # not used
-            all_cam_features.append(self.backbone_down_projs[cam_id](features))
-        # flatten everything
-        flattened_features = []
-        for cam_feature in all_cam_features:
-            flattened_features.append(cam_feature.reshape([bs, -1]))
-        flattened_features = torch.cat(flattened_features, axis=1) # 768 each
-        features = torch.cat([flattened_features, qpos], axis=1) # qpos: 14
-        a_hat = self.mlp(features)
+        if image:
+            for cam_id, cam_name in enumerate(self.camera_names):
+                features, pos = self.backbones[cam_id](image[:, cam_id])
+                features = features[0] # take the last layer feature
+                pos = pos[0] # not used
+                all_cam_features.append(self.backbone_down_projs[cam_id](features))
+            # flatten everything
+            flattened_features = []
+            for cam_feature in all_cam_features:
+                flattened_features.append(cam_feature.reshape([bs, -1]))
+            flattened_features = torch.cat(flattened_features, axis=1) # 768 each
+            features = torch.cat([flattened_features, qpos], axis=1) # qpos: 14
+            a_hat = self.mlp(features)
+        else:
+            for cam_id, cam_name in enumerate(self.camera_names):
+                features, pos = self.backbones[cam_id](image[:, cam_id])
+                features = features[0] # take the last layer feature
+                pos = pos[0] # not used
+                all_cam_features.append(self.backbone_down_projs[cam_id](features))
+            # flatten everything
+            flattened_features = []
+            for cam_feature in all_cam_features:
+                flattened_features.append(cam_feature.reshape([bs, -1]))
+            flattened_features = torch.cat(flattened_features, axis=1) # 768 each
+            features = torch.cat([flattened_features, qpos], axis=1) # qpos: 14
+            a_hat = self.mlp(features)
         return a_hat
 
 
@@ -250,7 +266,7 @@ def build_encoder(args):
 
 
 def build(args):
-    state_dim = 14 # TODO hardcode
+    state_dim = 7 # TODO hardcode
 
     # From state
     # backbone = None # from state for now, no need for conv nets
