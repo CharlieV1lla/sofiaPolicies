@@ -22,7 +22,12 @@ from sim_env import BOX_POSE
 import IPython
 e = IPython.embed
 
+scripts_path = os.path.abspath('/home/carlos/interbotix_ws/src/telesofia/scripts')
+sys.path.append(scripts_path)
+
 def main(args):
+
+    # Aqui las variables necesarias para entrenamiento o evaluacion
     set_seed(1)
     # command line parameters
     is_eval = args['eval']
@@ -33,11 +38,11 @@ def main(args):
     batch_size_train = args['batch_size']
     batch_size_val = args['batch_size']
     num_epochs = args['num_epochs']
-    no_cameras = args['no_cameras']
 
+    # Estos son los parametros por tarea. Se extran de la configuracion de la tarea en task config
     # get task parameters
     is_sim = task_name[:4] == 'sim_'
-    module_path = '~/interbotix_ws/src/telesofia'
+    module_path = os.path.expanduser('~/interbotix_ws/src/telesofia') # checar como desacerse de esta linea
     if module_path not in sys.path:
         sys.path.append(module_path)
     from scripts.constants import TASK_CONFIGS # Not from aloha_scripts.constants
@@ -45,7 +50,10 @@ def main(args):
     dataset_dir = task_config['dataset_dir']
     num_episodes = task_config['num_episodes']
     episode_len = task_config['episode_len']
+    camera_names = task_config['camera_names']
+    no_cameras = camera_names == None
 
+    #Estos son los parametros de las redes neuronales a usar
     # fixed parameters
     state_dim = 7
     lr_backbone = 1e-5
@@ -68,7 +76,7 @@ def main(args):
     elif policy_class == 'CNNMLP':
         policy_config = {'lr': args['lr'], 'lr_backbone': lr_backbone, 'backbone' : backbone, 'num_queries': 1,}
     elif " MLP":
-        policy_config = {'lr': args['lr']}
+        policy_config = {'lr': args['lr'], 'num_queries': 1,}
     else:
         raise NotImplementedError
 
@@ -87,6 +95,7 @@ def main(args):
         'real_robot': True
     }
 
+    #Esta seccion del codigo se ejecuta si es evaluacion
     if is_eval:
         ckpt_names = [f'policy_best.ckpt']
         results = []
@@ -99,7 +108,7 @@ def main(args):
         print()
         exit()
 
-    train_dataloader, val_dataloader, stats, _ = load_data(dataset_dir, num_episodes, batch_size_train, batch_size_val, no_cameras=no_cameras)
+    train_dataloader, val_dataloader, stats, _ = load_data(dataset_dir, num_episodes, camera_names, batch_size_train, batch_size_val, no_cameras=no_cameras)
 
     # save dataset stats
     if not os.path.isdir(ckpt_dir):
@@ -201,34 +210,34 @@ def eval_bc(config, ckpt_name, save_episode=True):
         ts = env.reset()
 
         ### onscreen render
-        if onscreen_render:
-            ax = plt.subplot()
-            plt_img = ax.imshow(env._physics.render(height=480, width=640, camera_id=onscreen_cam))
-            plt.ion()
+        # if onscreen_render:
+        #     ax = plt.subplot()
+        #     plt_img = ax.imshow(env._physics.render(height=480, width=640, camera_id=onscreen_cam))
+        #     plt.ion()
 
         ### evaluation loop
         if temporal_agg:
             all_time_actions = torch.zeros([max_timesteps, max_timesteps+num_queries, state_dim]).cuda()
 
         qpos_history = torch.zeros((1, max_timesteps, state_dim)).cuda()
-        image_list = [] # for visualization
+        # image_list = [] # for visualization
         qpos_list = []
         target_qpos_list = []
         rewards = []
         with torch.inference_mode():
             for t in range(max_timesteps):
                 ### update onscreen render and wait for DT
-                if onscreen_render:
-                    image = env._physics.render(height=480, width=640, camera_id=onscreen_cam)
-                    plt_img.set_data(image)
-                    plt.pause(DT)
+                # if onscreen_render:
+                    # image = env._physics.render(height=480, width=640, camera_id=onscreen_cam)
+                    # plt_img.set_data(image)
+                    # plt.pause(DT)
 
                 ### process previous timestep to get qpos and image_list
                 obs = ts.observation
-                if 'images' in obs:
-                    image_list.append(obs['images'])
-                else:
-                    image_list.append({'main': obs['image']})
+                # if 'images' in obs:
+                #     image_list.append(obs['images'])
+                # else:
+                #     image_list.append({'main': obs['image']})
                 qpos_numpy = np.array(obs['qpos'])
                 qpos = pre_process(qpos_numpy)
                 qpos = torch.from_numpy(qpos).float().cuda().unsqueeze(0)
@@ -252,9 +261,8 @@ def eval_bc(config, ckpt_name, save_episode=True):
                         raw_action = all_actions[:, t % query_frequency]
                 elif config['policy_class'] == "CNNMLP":
                     raw_action = policy(qpos)
-                elif config['policy_class'] == "NN":
+                elif config['policy_class'] == "MLP":
                     raw_action = policy(qpos)
-                    pass
                 else:
                     raise NotImplementedError
 
@@ -263,8 +271,17 @@ def eval_bc(config, ckpt_name, save_episode=True):
                 action = post_process(raw_action)
                 target_qpos = action
 
+                #current_joint_pos = np.array(env.get_observation())
+                current_joint_pos = env.get_observation()
+                print("Current Joint Positions:", current_joint_pos)
+                print("Target Joint Positions:", target_qpos)
+                # Clip the target positions
+                #target_qpos = np.array(action)  # Ensure target_qpos is a numpy array
+                clipped_qpos = clip(current_joint_pos["qpos"], target_qpos)
+                print("Clipped Target Positions:", clipped_qpos)
                 ### step the environment
-                ts = env.step(target_qpos)
+                # ts = env.step(target_qpos)
+                ts = env.step(clipped_qpos)
 
                 ### for visualization
                 qpos_list.append(qpos_numpy)
@@ -306,11 +323,20 @@ def eval_bc(config, ckpt_name, save_episode=True):
 
     return success_rate, avg_return
 
+def clip(current_pos, target_pos, max_diff=0.02):
+    """
+    Clip the target positions so that the difference between current and target positions 
+    does not exceed max_diff for each joint.
+    """
+    min_pos = current_pos - max_diff
+    max_pos = current_pos + max_diff
+    return np.clip(target_pos, min_pos, max_pos)
 
 def forward_pass(data, policy):
+    image_data = None #Checar como se saca la image data
     qpos_data, action_data, is_pad = data
     qpos_data, action_data, is_pad = qpos_data.cuda(), action_data.cuda(), is_pad.cuda()
-    return policy(qpos_data, action_data, is_pad) # TODO remove None
+    return policy(qpos_data, image_data, action_data, is_pad) # TODO remove None
 
 
 def train_bc(train_dataloader, val_dataloader, config):
@@ -408,6 +434,7 @@ def plot_history(train_history, validation_history, num_epochs, ckpt_dir, seed):
 
 
 if __name__ == '__main__':
+    # Argumentos necesarios para correr el entrenamiento o la evaluacion, que es correr el policy
     parser = argparse.ArgumentParser()
     parser.add_argument('--eval', action='store_true')
     parser.add_argument('--onscreen_render', action='store_true')
@@ -419,6 +446,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_epochs', action='store', type=int, help='num_epochs', required=True)
     parser.add_argument('--lr', action='store', type=float, help='lr', required=True)
 
+    # Argumentos para ACT
     # for ACT
     parser.add_argument('--kl_weight', action='store', type=int, help='KL Weight', required=False)
     parser.add_argument('--chunk_size', action='store', type=int, help='chunk_size', required=False)

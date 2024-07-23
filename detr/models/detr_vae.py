@@ -209,15 +209,15 @@ class MLP(nn.Module):
         super().__init__()
 
         mlp_in_dim = 7
-        self.mlp = mlp(input_dim=mlp_in_dim, hidden_dim=1024, output_dim=7, hidden_depth=2)
+        self.mlp = mlp(input_dim=mlp_in_dim, hidden_dim=1024, output_dim=7, hidden_depth=3)
 
-    def forward(self, qpos, actions=None):
+    def forward(self, qpos):
         """
         qpos: batch, qpos_dim
         actions: batch, seq, action_dim
         """
-        features = torch.cat(qpos, axis=1) # qpos: 7
-        return self.mlp(features)
+        #features = torch.cat(qpos, axis=1) # qpos: 7
+        return self.mlp(qpos)
 
 
 def mlp(input_dim, hidden_dim, output_dim, hidden_depth):
