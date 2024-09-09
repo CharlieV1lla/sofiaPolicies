@@ -7,16 +7,13 @@ Welcome to sofiaPolicies.
 
 ## Project structure
 
-```python
-
-```
 ## Installation Guide
 
 
 
 ## Getting started
 
-```
+
 
 ## Further Resources
 
@@ -37,11 +34,9 @@ Welcome to sofiaPolicies.
 
 ## Credits
 
-Authors:
+Author: Carlos Ignacio Villalobos Sanchez
 
-Carlos Ignacio Villalobos Sanchez
-
-Special thanks to my supervisor Andrew Davison, to Marwan Taher and all the members of the Dyson Robotics Laboratory
+Special thanks to my supervisor Andrew Davison, to Marwan Taher and all the members of the Dyson Robotics Laboratory for making me feel welcome and for all the help provided throught the project.
 
 ## Contact
 
