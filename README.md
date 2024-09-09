@@ -36,7 +36,7 @@ Welcome to sofiaPolicies.
 
 Author: Carlos Ignacio Villalobos Sanchez
 
-Special thanks to my supervisor Andrew Davison, to Marwan Taher and all the members of the Dyson Robotics Laboratory for making me feel welcome and for all the help provided throught the project.
+Special thanks to my supervisor Andrew Davison, to Marwan Taher and all the members of the Dyson Robotics Laboratory for making me feel welcome and for all the help they provided throughout the project.
 
 ## Contact
 
