@@ -2,36 +2,6 @@
 
 Welcome to sofiaPolicies. 
 
-## Table of Contents
-
-
-## Project structure
-
-## Installation Guide
-
-
-
-## Getting started
-
-
-
-## Further Resources
-
-
-### Tutorials:
-
-
-### Result samples:
-
-
-
-
-## Current Features
-
-
-### Methods
-
-
 ## Credits
 
 Author: Carlos Ignacio Villalobos Sanchez
